@@ -17,6 +17,7 @@ Grimlock = (function() {
 
   init = function() {
     bind(document, 'click', intercept);
+    bind(window, 'popstate', reload);
   },
 
   intercept = function(event) {
@@ -27,39 +28,39 @@ Grimlock = (function() {
     }
   },
 
-  load = function(path) {
+  reload = function(event) {
+    load(event.state.path, true);
+  },
+
+  load = function(path, skipState) {
     var
       url = path + (path.match(/\?/) ? '&' : '?') + '_=' + new Date().getTime(),
       iframe = document.createElement('iframe'),
       onload = function() {
-        var doc = iframe.contentWindow.document;
+        var doc = iframe.contentWindow.document, title;
         if (doc.readyState == 'complete') {
           iframe.onload = null;
-          blend(doc, function() {
-            var title = doc.title;
-            // window.top.history.pushState({title: title, path: doc.URL}, title, path);
-          });
+          patch(document.body, doc.body);
+          title = doc.title;
+          if (skipState) {
+            document.title = title;
+          } else {
+            window.top.history.pushState({title: title, path: doc.URL}, title, path);
+          }
         }
       };
 
     iframe.style.cssText = `
-  width: 0;
-  height: 0;
-  position: absolute;
-  border: 0;
-`;
+      width: 0;
+      height: 0;
+      position: absolute;
+      border: 0;
+    `;
 
     document.body.appendChild(iframe);
     iframe.onload = onload;
     iframe.contentWindow.location = url;
   },
-
-  blend = function(doc, fn) {
-    var diffs = diff(document.body, doc.body);
-    fn();
-  },
-
-  // utility functions
 
   ready = function(fn) {
     if (document.attachEvent)
@@ -92,130 +93,57 @@ Grimlock = (function() {
     return event.target || event.srcElement || window.event.target || window.event.srcElement;
   },
 
-  diff = function(el, other) {
+  patch = function(elA, elB) {
     var
-      added = [],
-      removed = [],
-      replaced = [],
       moved = {},
-      matched = {},
-      inverted = {},
-      offset = 0,
       listA = [],
       listB = [],
-      i, j, a, b, match, index, diff, child;
+      i, j, a, b, match,
+      records, record, el, sibling;
 
-    for (i = 0; i < el.children.length; i++) {
-      a = el.children[i];
+    for (i = 0; i < elA.children.length; i++) {
+      a = elA.children[i];
       if (a.nodeName == 'IFRAME') {
         break;
       }
       match = false;
-      for (j = 0; j < other.children.length; j++) {
-        if (!matched[j]) {
-          b = other.children[j];
+      for (j = 0; j < elB.children.length; j++) {
+        if (moved[j] == undefined) {
+          b = elB.children[j];
           if (a.isEqualNode(b)) {
             match = true;
-            matched[j] = true;
-            if (i != j) {
-              moved[i] = j;
-            }
+            moved[j] = i;
+            listA.push({index: i, el: a});
             break;
           }
         }
       }
       if (!match) {
-        removed.push(i);
+        listA.push({index: 'a' + i, el: a});
       }
     }
 
-    for (i = 0; i < other.children.length; i++) {
-      if (!matched[i]) {
-        added.push(i);
-      }
-    }
-
-    for (i = 0; i < added.length; i++) {
-      index = added[i];
-      j = removed.indexOf(index);
-      if (j != -1) {
-        replaced.push(index);
-        added.splice(i, 1);
-        removed.splice(j, 1);
-      }
-    }
-
-    for (i in moved) {
-      inverted[moved[i]] = parseInt(i, 10);
-    }
-
-    for (i in moved) {
-      i = parseInt(i, 10);
-      if (added.indexOf(i) != -1) {
-        offset++;
-      }
-      if (removed.indexOf(i - 1) != -1) { // ?????
-        offset--;
-      }
-      index = i + offset;
-      listA.push({
-        index: moved[i],
-        text: el.children[i].innerText
-      });
-      listB.push({
-        index: index,
-        el: el.children[inverted[index]],
-        text: (el.children[inverted[index]] && el.children[inverted[index]].innerText) || index
-      });
-    }
-
-    console.log('inverted', inverted);
-    console.log('moved', moved);
-    console.log('listA', listA);
-    console.log('listB', listB);
-
-    moved =
-      ListDiff(
-        listA,
-        listB,
-        'index'
-      ).map(function(diff) {
-        if (diff.type != 'move') {
-          console.warn('[Grimlock] Encountered unexpected diff type: "' + diff.type + '"');
-        }
-        return diff;
-      });
-
-    window.ListDiff = ListDiff;
-    console.log('replaced', replaced);
-    console.log('removed', removed);
-    console.log('added', added);
-    console.log('moved', moved);
-
-    for (i = 0; i < replaced.length; i++) {
-      index = replaced[i];
-      el.replaceChild(other.children[index].cloneNode(true));
-    }
-
-    for (i = removed.length - 1; i >= 0; i--) {
-      index = removed[i];
-      el.removeChild(el.children[index]);
-    }
-
-    for (i = added.length - 1; i >= 0; i--) {
-      index = added[i];
-      child = other.children[index].cloneNode(true);
-      if (index == el.children.length) {
-        el.appendChild(child);
+    for (j = 0; j < elB.children.length; j++) {
+      b = elB.children[j];
+      i = moved[j];
+      if (i == undefined) {
+        listB.push({index: 'b' + j, el: b});
       } else {
-        el.insertBefore(child, el.children[index]);
+        listB.push({index: i, el: elA.children[i]});
       }
     }
 
-    for (i = 0; i < moved.length; i++) {
-      diff = moved[i];
-      console.log(diff);
-      el.insertBefore(diff.item.el, diff.afterNode.el);
+    records = ListDiff(listA, listB, 'index');
+
+    for (i = 0; i < records.length; i++) {
+      record = records[i];
+      el = record.item.el;
+      if (record.type == 'remove') {
+        elA.removeChild(el);
+      } else {
+        sibling = record.afterNode ? record.afterNode.el.nextSibling : elA.firstChild;
+        sibling ? elA.insertBefore(el, sibling) : elA.appendChild(el);
+      }
     }
   },
 
