@@ -34,32 +34,25 @@ Grimlock = (function() {
 
   load = function(path, skipState) {
     var
-      url = path + (path.match(/\?/) ? '&' : '?') + '_=' + new Date().getTime(),
-      iframe = document.createElement('iframe'),
-      onload = function() {
-        var doc = iframe.contentWindow.document, title;
-        if (doc.readyState == 'complete') {
-          iframe.onload = null;
-          patch(document.body, doc.body);
-          title = doc.title;
-          if (skipState) {
-            document.title = title;
-          } else {
-            window.top.history.pushState({title: title, path: doc.URL}, title, path);
-          }
+      xhr = new XMLHttpRequest(),
+      parser, doc, title;
+
+    xhr.onload = function () {
+    	if (xhr.status >= 200 && xhr.status < 300) {
+        parser = new DOMParser();
+        doc = parser.parseFromString(xhr.responseText, 'text/html');
+        title = doc.title;
+        patch(document.body, doc.body);
+        if (skipState) {
+          document.title = title;
+        } else {
+          window.top.history.pushState({title: title, path: xhr.responseURL}, title, path);
         }
-      };
+    	}
+    };
 
-    iframe.style.cssText = `
-      width: 0;
-      height: 0;
-      position: absolute;
-      border: 0;
-    `;
-
-    document.body.appendChild(iframe);
-    iframe.onload = onload;
-    iframe.contentWindow.location = url;
+    xhr.open('GET', path);
+    xhr.send();
   },
 
   ready = function(fn) {
