@@ -1,6 +1,8 @@
 # grimlock.js
 
-No bullshit page transitions.
+No bullshit page transitions
+
+![Transformer Dinobot Grimlock](https://raw.githubusercontent.com/archan937/grimlock.js/master/demo/grimlock-dinobot.jpg)
 
 ## Installation
 
@@ -11,6 +13,12 @@ Just include grimlock.js:
 ```
 
 **Note**: include `grimlock.min.js` for the minified grimlock.js library
+
+### Running the demo locally
+
+In order to run the demo on your computer, please start up a web server for the current directory and open it in your browser. This is a list of HTTP static server one-liners: [https://gist.github.com/willurd/5720255](https://gist.github.com/willurd/5720255).
+
+For example, run `ruby -run -ehttpd . -p8000` and open [http://localhost:8000/demo/index.html](http://localhost:8000/demo/index.html).
 
 ## Contact me
 
