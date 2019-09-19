@@ -14,6 +14,7 @@ Grimlock = (function() {
   'use strict';
 
   var
+    grimlocked = 'data-grimlocked',
 
   init = function() {
     bind(document, 'click', intercept);
@@ -38,7 +39,7 @@ Grimlock = (function() {
       xhr = new XMLHttpRequest(),
       parser, doc, title;
 
-    xhr.onload = function () {
+    xhr.onload = function() {
     	if (xhr.status >= 200 && xhr.status < 300) {
         parser = new DOMParser();
         doc = parser.parseFromString(xhr.responseText, 'text/html');
@@ -87,7 +88,9 @@ Grimlock = (function() {
   },
 
   morph = function(docA, docB) {
-    var transition = 'all 0.4s ease';
+    var
+      transition = 'all 0.4s ease',
+      selector = 'link,style';
 
     docA.body.style.transition = transition;
     setTimeout(function() {
@@ -95,26 +98,29 @@ Grimlock = (function() {
       if (!docA.body.style.cssText) {
         docA.body.removeAttribute('style');
       }
-    }, 400);
+    }, 425);
 
-    docA.head.querySelectorAll('[data-grimlocked]').forEach(function(el) {
-      el.parentNode.removeChild(el);
+    docA.head.querySelectorAll(selector).forEach(function(el) {
+      if (!el.hasAttribute(grimlocked)) {
+        el.parentNode.removeChild(el);
+      }
     });
 
     MorphDom(docA.body, docB.body, {
       childrenOnly: true,
       onBeforeNodeDiscarded: function(node) {
         if (node.classList) {
-          node.classList.add(
+          var classes = [
             'animated',
             'fadeOut',
             'ease-out-circ',
             'd1',
             'a-1'
-          );
+          ];
           node.addEventListener('animationend', function() {
             node.parentNode && node.parentNode.removeChild(node);
           });
+          node.classList.add.apply(node.classList, classes);
           return false;
         }
       },
@@ -127,13 +133,13 @@ Grimlock = (function() {
             'd1',
             'a-1'
           ];
-          node.classList.add.apply(node.classList, classes);
           node.addEventListener('animationend', function() {
             node.classList.remove.apply(node.classList, classes);
             if (!node.classList.value) {
               node.removeAttribute('class');
             }
           });
+          node.classList.add.apply(node.classList, classes);
         }
       },
       onBeforeElUpdated: function(elA, elB) {
@@ -143,13 +149,16 @@ Grimlock = (function() {
       }
     });
 
-    docB.head.querySelectorAll('[data-grimlocked]').forEach(function(el) {
-      docA.head.appendChild(el);
+    docB.head.querySelectorAll(selector).forEach(function(el) {
+      if (!el.hasAttribute(grimlocked)) {
+        docA.head.appendChild(el);
+      }
     });
   },
 
   defineAnimations = function() {
     var style = document.createElement('style');
+    style.setAttribute(grimlocked, '');
     style.innerHTML =
 
     // https://cdnjs.cloudflare.com/ajax/libs/animate.css/3.5.2/animate.min.css
