@@ -37,14 +37,15 @@ Grimlock = (function() {
   load = function(path, skipState) {
     var
       xhr = new XMLHttpRequest(),
-      title;
+      url, title;
 
     xhr.onload = function() {
     	if (xhr.status >= 200 && xhr.status < 300) {
-        title = transform(xhr.responseText).title;
+        url = xhr.responseURL;
+        title = transform(xhr.responseText, url).title;
         document.title = title;
         if (!skipState) {
-          window.history.pushState({title: title, path: xhr.responseURL}, title, path);
+          window.history.pushState({title: title, path: url}, title, path);
         }
     	}
     };
@@ -84,12 +85,21 @@ Grimlock = (function() {
     return event.target || event.srcElement || window.event.target || window.event.srcElement;
   },
 
-  transform = function(html) {
+  transform = function(html, href) {
     var
       transition = 'all 0.4s ease',
       selector = 'link,style',
       docA = document,
-      docB = new DOMParser().parseFromString(html, 'text/html');
+      docB = new DOMParser().parseFromString(html, 'text/html'),
+      base;
+
+    if (href) {
+      base = docA.head.querySelector('base') || docA.createElement('base');
+      base.setAttribute('href', href);
+      if (!base.parentNode) {
+        docA.head.appendChild(base);
+      }
+    }
 
     docA.body.style.transition = transition;
     setTimeout(function() {
